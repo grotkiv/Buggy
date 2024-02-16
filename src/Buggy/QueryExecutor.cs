@@ -1,4 +1,4 @@
-namespace Buggy.Azure;
+namespace Buggy;
 
 using Buggy.Model;
 using System;
@@ -11,21 +11,19 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
-using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.Common;
 
 public class QueryExecutor : BackgroundService
 {
-    private readonly AzureProject project;
-    private readonly Uri uri;
-    private readonly ObservableCollection<Model.WorkItem> workItems;
+    private readonly Settings settings;
+    private readonly IWorkItemQuery query;
+    private readonly ObservableCollection<WorkItem> workItems;
     private readonly ILogger<QueryExecutor> logger;
 
-    public QueryExecutor(ObservableCollection<Model.WorkItem> workItems, IOptions<AzureProject> options, ILogger<QueryExecutor> logger)
+    public QueryExecutor(IWorkItemQuery query, IOptions<Settings> options, ObservableCollection<WorkItem> workItems, ILogger<QueryExecutor> logger)
     {
-        project = options.Value;
-        this.uri = new Uri(string.Join('/', project.Url, project.Organization));
+        settings = options.Value;
+        this.query = query;
         this.workItems = workItems;
         this.logger = logger;
     }
@@ -34,19 +32,18 @@ public class QueryExecutor : BackgroundService
     {
         var watch = new Stopwatch();
 
-        logger.LogInformation("WIQL Query: {@WiqlQuery}", project.Query);
-        logger.LogInformation("UpdatePeriod: {@UpdatePeriod}", project.UpdatePeriod);
+        logger.LogInformation("UpdatePeriod: {@UpdatePeriod}", settings.UpdatePeriod);
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 watch.Restart();
-                var azureWorkItems = await RunWiqlQuery()
+                var workItems = await query.RunQuery()
                     .ConfigureAwait(false);
                 logger.LogDebug("WIQL Query duration: {@WiqlDuration}", watch.ElapsedMilliseconds);
 
                 watch.Restart();
-                JoinWorkItems(azureWorkItems);
+                JoinWorkItems(workItems);
                 logger.LogDebug("Collection update duration: {@CollectionUpdateDuration}", watch.ElapsedMilliseconds);
             }
             catch (Exception e)
@@ -55,40 +52,19 @@ public class QueryExecutor : BackgroundService
             }
             finally
             {
-                await Delay(project.UpdatePeriod, stoppingToken)
+                await Delay(settings.UpdatePeriod, stoppingToken)
                     .ConfigureAwait(false);
             }
         }
     }
 
-    private async Task<IEnumerable<Model.WorkItem>> RunWiqlQuery()
-    {
-        var credentials = new VssBasicCredential(string.Empty, project.Pat);
-        using var httpClient = new WorkItemTrackingHttpClient(this.uri, credentials);
-
-        var wiql = new Wiql() { Query = project.Query };
-        var result = await httpClient.QueryByWiqlAsync(wiql)
-            .ConfigureAwait(false);
-        if (!result.WorkItems.Any())
-        {
-            return Array.Empty<Model.WorkItem>();
-        }
-
-        var ids = result.WorkItems.Select(item => item.Id);
-        var fields = new[] { "System.Id", "System.Title", "System.State", "System.WorkItemType" };
-        var azureWorkItems = await httpClient.GetWorkItemsAsync(ids, fields, result.AsOf)
-            .ConfigureAwait(false);
-
-        return azureWorkItems.Select(w => w.ToBuggyModel());
-    }
-
-    private void JoinWorkItems(IEnumerable<Model.WorkItem> azureWorkItems)
+    private void JoinWorkItems(IEnumerable<WorkItem> azureWorkItems)
     {
         workItems.RemoveAll(item => !azureWorkItems.Any(bwi => bwi.Id == item.Id));
 
         azureWorkItems.ForEach(freshWorkItem =>
         {
-            if (workItems.SingleOrDefault(current => current.Id == freshWorkItem.Id) is Model.WorkItem item)
+            if (workItems.SingleOrDefault(current => current.Id == freshWorkItem.Id) is WorkItem item)
             {
                 item.State = freshWorkItem.State = item.State;
                 item.Title = freshWorkItem.Title = item.Title;

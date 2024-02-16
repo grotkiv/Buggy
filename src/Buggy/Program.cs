@@ -20,7 +20,13 @@ public static class Program
                 .ReadFrom.Services(services))
             .ConfigureServices(services =>
             {
+                services.AddOptions<Settings>()
+                    .BindConfiguration(nameof(Settings))
+                    .ValidateDataAnnotations()
+                    .ValidateOnStart();
+
                 services.AddAzure();
+                services.AddHostedService<QueryExecutor>();
                 services.AddSingleton<BuggyNotifyIcon>();
                 services.AddBuggyModel();
             })

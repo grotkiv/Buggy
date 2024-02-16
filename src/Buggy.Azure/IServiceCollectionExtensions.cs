@@ -1,5 +1,6 @@
 namespace Buggy.Azure;
 
+using Buggy.Model;
 using Microsoft.Extensions.DependencyInjection;
 
 public static class IServiceCollectionExtensions
@@ -11,7 +12,7 @@ public static class IServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddHostedService<QueryExecutor>();
+        services.AddSingleton<IWorkItemQuery, AzureQuery>();
 
         return services;
     }

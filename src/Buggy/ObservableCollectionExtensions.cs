@@ -1,4 +1,4 @@
-namespace Buggy.Model;
+namespace Buggy;
 
 using System;
 using System.Collections.ObjectModel;

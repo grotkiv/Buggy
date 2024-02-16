@@ -14,8 +14,6 @@ namespace Buggy
 
         public string Query { get; set; } = string.Empty;
 
-        public TimeSpan UpdatePeriod { get; set; } = TimeSpan.FromSeconds(10);
-
         public override string ToString()
         {
             return string.Join('/', Url, Organization, Project);
