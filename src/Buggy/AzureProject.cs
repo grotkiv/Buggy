@@ -1,6 +1,6 @@
 namespace Buggy
 {
-    using System.Configuration;
+    using System;
 
     public class AzureProject
     {
@@ -11,6 +11,10 @@ namespace Buggy
         public string Project { get; set; } = string.Empty;
 
         public string Pat { get; set; } = string.Empty;
+
+        public string Query { get; set; } = string.Empty;
+
+        public TimeSpan UpdatePeriod { get; set; } = TimeSpan.FromSeconds(10);
 
         public override string ToString()
         {
