@@ -1,4 +1,4 @@
-namespace Buggy;
+namespace Buggy.Model;
 
 using System;
 using System.Collections.ObjectModel;
@@ -9,7 +9,7 @@ public static class ObservableCollectionExtensions
     /// <summary>
     /// Removes all items matching <paramref name="condition"/> from <paramref name="coll"/>.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="T">The type parameter.</typeparam>
     /// <param name="coll">The collection to modify.</param>
     /// <param name="condition">The condition to match.</param>
     /// <returns>The number of deleted items.</returns>

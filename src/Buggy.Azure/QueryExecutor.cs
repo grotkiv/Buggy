@@ -1,5 +1,6 @@
-namespace Buggy;
+namespace Buggy.Azure;
 
+using Buggy.Model;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -60,7 +61,7 @@ public class QueryExecutor : BackgroundService
         }
     }
 
-    private async Task<IEnumerable<WorkItem>> RunWiqlQuery()
+    private async Task<IEnumerable<Model.WorkItem>> RunWiqlQuery()
     {
         var credentials = new VssBasicCredential(string.Empty, project.Pat);
         using var httpClient = new WorkItemTrackingHttpClient(this.uri, credentials);
@@ -70,21 +71,22 @@ public class QueryExecutor : BackgroundService
             .ConfigureAwait(false);
         if (!result.WorkItems.Any())
         {
-            return Array.Empty<WorkItem>();
+            return Array.Empty<Model.WorkItem>();
         }
 
         var ids = result.WorkItems.Select(item => item.Id);
         var fields = new[] { "System.Id", "System.Title", "System.State", "System.WorkItemType" };
-        return await httpClient.GetWorkItemsAsync(ids, fields, result.AsOf).ConfigureAwait(false);
+        var azureWorkItems = await httpClient.GetWorkItemsAsync(ids, fields, result.AsOf)
+            .ConfigureAwait(false);
+
+        return azureWorkItems.Select(w => w.ToBuggyModel());
     }
 
-    private void JoinWorkItems(IEnumerable<WorkItem> azureWorkItems)
+    private void JoinWorkItems(IEnumerable<Model.WorkItem> azureWorkItems)
     {
-        var freshWorkItems = azureWorkItems.Select(w => w.ToBuggyModel());
+        workItems.RemoveAll(item => !azureWorkItems.Any(bwi => bwi.Id == item.Id));
 
-        workItems.RemoveAll(item => !freshWorkItems.Any(bwi => bwi.Id == item.Id));
-
-        freshWorkItems.ForEach(freshWorkItem =>
+        azureWorkItems.ForEach(freshWorkItem =>
         {
             if (workItems.SingleOrDefault(current => current.Id == freshWorkItem.Id) is Model.WorkItem item)
             {

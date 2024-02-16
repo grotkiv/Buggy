@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
+using Buggy.Azure;
 using Buggy.Model;
 
 public static class Program
@@ -19,12 +20,7 @@ public static class Program
                 .ReadFrom.Services(services))
             .ConfigureServices(services =>
             {
-                services.AddOptions<AzureProject>()
-                        .BindConfiguration(nameof(AzureProject))
-                        .ValidateDataAnnotations()
-                        .ValidateOnStart();
-
-                services.AddHostedService<QueryExecutor>();
+                services.AddAzure();
                 services.AddSingleton<BuggyNotifyIcon>();
                 services.AddBuggyModel();
             })
