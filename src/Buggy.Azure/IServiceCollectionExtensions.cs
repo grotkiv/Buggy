@@ -12,7 +12,8 @@ public static class IServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddSingleton<IWorkItemQuery, AzureQuery>();
+        services.AddTransient<IUrlProvider, AzureUrlProvider>();
+        services.AddTransient<IWorkItemQuery, AzureQuery>();
 
         return services;
     }

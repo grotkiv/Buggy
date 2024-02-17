@@ -27,7 +27,7 @@ public class BuggyNotifyIcon
     private readonly ContextMenuStrip contextMenu = new();
     private readonly ThrottleFilter throttleFilter = new(TimeSpan.FromSeconds(minBalloonTipTimePeriodInSeconds));
     private readonly ObservableCollection<WorkItem> workItems;
-    private readonly AzureProject azureProject;
+    private readonly IUrlProvider urlProvider;
     private readonly IHostApplicationLifetime lifetime;
     private readonly ILogger<BuggyNotifyIcon> logger;
 
@@ -40,10 +40,10 @@ public class BuggyNotifyIcon
     private static readonly Bitmap ImgTestCase = Svg.Load("images/flask-outline.svg", Color.LightGreen);
     private static readonly Bitmap ImgSkull = Svg.Load("images/skull-outline.svg");
 
-    public BuggyNotifyIcon(ObservableCollection<WorkItem> workItems, IOptions<AzureProject> azureOptions, IHostApplicationLifetime lifetime, ILogger<BuggyNotifyIcon> logger)
+    public BuggyNotifyIcon(ObservableCollection<WorkItem> workItems, IUrlProvider urlProvider, IHostApplicationLifetime lifetime, ILogger<BuggyNotifyIcon> logger)
     {
         this.workItems = workItems;
-        this.azureProject = azureOptions.Value;
+        this.urlProvider = urlProvider;
         this.lifetime = lifetime;
         this.logger = logger;
         lifetime.ApplicationStopping.Register(() => Application.Exit());
@@ -53,7 +53,7 @@ public class BuggyNotifyIcon
     {
         contextMenu.Items.Add("&Exit", "images/exit-outline.svg", OnClickExit);
         contextMenu.Items.Add(new ToolStripSeparator());
-        contextMenu.Items.Add($"Dashboard ({azureProject})", "images/clipboard-outline.svg", OnClickDashboard);
+        contextMenu.Items.Add($"Project Overview ({urlProvider.GetProjectOverviewUrl()})", "images/clipboard-outline.svg", OnClickProjectOverview);
         contextMenu.Items.Add(new ToolStripSeparator());
         AddWorkItems(workItems);
         workItems.CollectionChanged += OnWorkItemCollectionChanged;
@@ -153,7 +153,7 @@ public class BuggyNotifyIcon
     {
         if (sender is ToolStripMenuItem menuItem && menuItem.Tag is WorkItem workItem)
         {
-            Url.Open($"{azureProject}/_workitems/edit/{workItem.Id}");
+            Url.Open(urlProvider.GetWorkItemUrl(workItem));
         }
         else
         {
@@ -161,9 +161,9 @@ public class BuggyNotifyIcon
         }
     }
 
-    private void OnClickDashboard(object? sender, EventArgs e)
+    private void OnClickProjectOverview(object? sender, EventArgs e)
     {
-        Url.Open(azureProject.ToString());
+        Url.Open(urlProvider.GetProjectOverviewUrl());
     }
 
     private void OnClickExit(object? sender, EventArgs e)
