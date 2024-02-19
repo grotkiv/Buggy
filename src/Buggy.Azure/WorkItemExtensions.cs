@@ -1,4 +1,4 @@
-namespace Buggy;
+namespace Buggy.Azure;
 
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 

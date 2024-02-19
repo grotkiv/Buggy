@@ -11,8 +11,6 @@ using System.Windows.Forms;
 using Buggy.Model;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.TeamFoundation.SourceControl.WebApi;
 
 public class BuggyNotifyIcon
 {
@@ -28,6 +26,8 @@ public class BuggyNotifyIcon
     private readonly ThrottleFilter throttleFilter = new(TimeSpan.FromSeconds(minBalloonTipTimePeriodInSeconds));
     private readonly ObservableCollection<WorkItem> workItems;
     private readonly IUrlProvider urlProvider;
+    private readonly IBuggyActions buggyActions;
+    private readonly IBuggyDropDownMenus dropDownMenus;
     private readonly IHostApplicationLifetime lifetime;
     private readonly ILogger<BuggyNotifyIcon> logger;
 
@@ -40,10 +40,12 @@ public class BuggyNotifyIcon
     private static readonly Bitmap ImgTestCase = Svg.Load("images/flask-outline.svg", Color.LightGreen);
     private static readonly Bitmap ImgSkull = Svg.Load("images/skull-outline.svg");
 
-    public BuggyNotifyIcon(ObservableCollection<WorkItem> workItems, IUrlProvider urlProvider, IHostApplicationLifetime lifetime, ILogger<BuggyNotifyIcon> logger)
+    public BuggyNotifyIcon(ObservableCollection<WorkItem> workItems, IUrlProvider urlProvider, IBuggyActions buggyActions, IBuggyDropDownMenus dropDownMenus, IHostApplicationLifetime lifetime, ILogger<BuggyNotifyIcon> logger)
     {
         this.workItems = workItems;
         this.urlProvider = urlProvider;
+        this.buggyActions = buggyActions;
+        this.dropDownMenus = dropDownMenus;
         this.lifetime = lifetime;
         this.logger = logger;
         lifetime.ApplicationStopping.Register(() => Application.Exit());
@@ -88,11 +90,34 @@ public class BuggyNotifyIcon
                 workItem.PropertyChanged += OnWorkItemPropertyChanged;
                 var menuItem = new ToolStripMenuItem(ToMenuItemText(workItem), GetWorkItemImage(workItem.Type), OnClickWorkItem, workItem.Id.ToString());
                 menuItem.Tag = workItem;
+                menuItem.DropDown = dropDownMenus.GetMenuStrip(workItem.Type);
+                menuItem.DropDownItemClicked += OnWorkItemDropDownClicked;
                 return menuItem;
             }).ToArray();
 
             contextMenu.Items.AddRange(list);
             ShowBalloonTipThrottled("New Work Items", "New work items match your query.");
+        }
+    }
+
+    private async void OnWorkItemDropDownClicked(object? sender, ToolStripItemClickedEventArgs itemClickedEvent)
+    {
+        if (sender is not ToolStripMenuItem menuItem || menuItem.Tag is not WorkItem workItem)
+        {
+            return;
+        }
+
+        try {
+            string actionName = itemClickedEvent.ClickedItem?.Text ?? "UNKNOWN";
+            var actionMap = buggyActions.GetActionMap(workItem.Type);
+            if(actionMap.TryGetValue(actionName, out var action))
+            {
+                await action.Invoke(workItem);
+            }
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "An unexpected error occurred while closing workitem {@WorkItem}", workItem);
         }
     }
 
@@ -175,13 +200,13 @@ public class BuggyNotifyIcon
     {
         return type switch
         {
-            "Bug" => ImgBug,
-            "Epic" => ImgEpic,
-            "Feature" => ImgFeature,
-            "Issue" => ImgIssue,
-            "Task" => ImgTask,
-            "Test Case" => ImgTestCase,
-            "User Story" => ImgUserStory,
+            WorkItemType.Bug => ImgBug,
+            WorkItemType.Epic => ImgEpic,
+            WorkItemType.Feature => ImgFeature,
+            WorkItemType.Issue => ImgIssue,
+            WorkItemType.Task => ImgTask,
+            WorkItemType.TestCase => ImgTestCase,
+            WorkItemType.UserStory => ImgUserStory,
             _ => ImgSkull,
         };
     }

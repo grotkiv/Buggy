@@ -27,6 +27,8 @@ public static class Program
 
                 services.AddAzure();
                 services.AddHostedService<QueryExecutor>();
+                services.AddSingleton<IBuggyActions, BuggyActions>();
+                services.AddSingleton<IBuggyDropDownMenus, BuggyDropDownMenus>();
                 services.AddSingleton<BuggyNotifyIcon>();
                 services.AddBuggyModel();
             })

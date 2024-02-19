@@ -14,6 +14,7 @@ public static class IServiceCollectionExtensions
 
         services.AddTransient<IUrlProvider, AzureUrlProvider>();
         services.AddTransient<IWorkItemQuery, AzureQuery>();
+        services.AddTransient<IWorkItemActions, AzureActions>();
 
         return services;
     }
